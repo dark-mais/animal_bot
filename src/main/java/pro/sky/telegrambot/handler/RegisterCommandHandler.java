@@ -3,8 +3,6 @@ package pro.sky.telegrambot.handler;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.slf4j.Logger;
@@ -33,7 +31,7 @@ public class RegisterCommandHandler implements CommandHandler {
 
     @Override
     public boolean canHandle(String command) {
-        return command.startsWith("/register") || userStates.containsValue("AWAITING_NAME");
+        return command!=null && command.startsWith("/register") || userStates.containsValue("AWAITING_NAME");
     }
 
     @Override

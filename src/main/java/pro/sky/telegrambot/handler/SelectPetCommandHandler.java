@@ -5,6 +5,8 @@ import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.ReplyKeyboardRemove;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import org.slf4j.Logger;
@@ -37,7 +39,10 @@ public class SelectPetCommandHandler implements CommandHandler {
 
     @Override
     public boolean canHandle(String command) {
-        return command.equals("Выбрать питомца") || command.startsWith("select_pet") || command.startsWith("adopt_pet");
+        return command != null && (command.equals("Выбрать питомца")
+                || command.startsWith("select_pet")
+                || command.startsWith("adopt_pet")
+                || !registrationStates.isEmpty());
     }
 
     @Override
@@ -45,7 +50,11 @@ public class SelectPetCommandHandler implements CommandHandler {
         Long chatId = message.chat().id();
         String text = message.text();
 
-        logger.info("Handling message from chatId: {} with text: {}", chatId, text);
+        // Проверяем, есть ли уже активная заявка у клиента
+        if (volunteerService.isClientPending(chatId)) {
+            telegramBot.execute(new SendMessage(chatId, "Ваша заявка уже рассматривается. Ожидайте решения волонтера."));
+            return;
+        }
 
         if (registrationStates.containsKey(chatId)) {
             String currentState = registrationStates.get(chatId);
@@ -64,51 +73,67 @@ public class SelectPetCommandHandler implements CommandHandler {
                         telegramBot.execute(new SendMessage(chatId, "Пожалуйста, укажите ваш номер телефона."));
                         registrationStates.put(chatId, "AWAITING_PHONE");
                     } catch (NumberFormatException e) {
-                        logger.error("Invalid age input: {}", text);
                         telegramBot.execute(new SendMessage(chatId, "Возраст должен быть числом. Пожалуйста, укажите ваш возраст."));
                     }
                     break;
                 case "AWAITING_PHONE":
                     client.setPhoneNumber(text.trim());
-                    Pet pet = volunteerService.getPetById(client.getAdoptedPet().getId());
+                    Pet pet = client.getAdoptedPet();
                     client.setAdoptedPet(pet);
                     volunteerService.saveClient(client);
 
-                    telegramBot.execute(new SendMessage(chatId, "Регистрация завершена. Вы успешно взяли питомца: " + pet.getName()));
+                    // Уведомление волонтеру
+                    sendAdoptionRequestToVolunteer(client, pet);
+
+                    // Завершение регистрации
                     registrationStates.remove(chatId);
                     pendingRegistrations.remove(chatId);
+
+                    // Возвращаем клиенту клавиатуру
+                    ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup(
+                            new String[]{"Выбрать питомца"})
+                            .resizeKeyboard(true)
+                            .oneTimeKeyboard(false);
+
+                    telegramBot.execute(new SendMessage(chatId, "Регистрация завершена. Ожидайте решения волонтера.").replyMarkup(keyboard));
                     break;
                 default:
-                    logger.error("Unknown state: {}", currentState);
                     telegramBot.execute(new SendMessage(chatId, "Произошла ошибка. Попробуйте снова."));
                     registrationStates.remove(chatId);
                     pendingRegistrations.remove(chatId);
                     break;
             }
         } else {
-            // Если клиент снова нажал "Выбрать питомца", не начав регистрацию
             if (text.equals("Выбрать питомца")) {
                 showPet(chatId, 0);  // Показываем первого питомца
             } else {
-                logger.info("Ignoring unrelated message: {}", text);
-                telegramBot.execute(new SendMessage(chatId, "Пожалуйста, сначала нажмите 'Взять' и следуйте инструкциям для завершения регистрации."));
+                telegramBot.execute(new SendMessage(chatId, "Пожалуйста, сначала нажмите 'Выбрать питомца' и следуйте инструкциям."));
             }
         }
+    }
+
+    private void sendAdoptionRequestToVolunteer(Client client, Pet pet) {
+        Long volunteerChatId = pet.getVolunteer().getChatId(); // Получаем chatId волонтера
+        String messageText = String.format("Поступила новая заявка на усыновление питомца:\n\nКлиент: %s\nВозраст: %d\nТелефон: %s\n\nПитомец: %s (%s)",
+                client.getName(), client.getAge(), client.getPhoneNumber(), pet.getName(), pet.getBreed());
+
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(
+                new InlineKeyboardButton("Одобрить").callbackData("approve_request:" + client.getId()),
+                new InlineKeyboardButton("Отказать").callbackData("reject_request:" + client.getId())
+        );
+
+        telegramBot.execute(new SendMessage(volunteerChatId, messageText).replyMarkup(keyboard));
     }
 
     public void handleCallbackQuery(CallbackQuery callbackQuery) {
         Long chatId = callbackQuery.message().chat().id();
         String data = callbackQuery.data();
 
-        logger.info("Received callback data: {}", data);
-
         if (data.startsWith("select_pet")) {
             int petIndex = Integer.parseInt(data.split(":")[1]);
-            logger.info("Handling 'select_pet' callback for pet index: {}", petIndex);
             showPet(chatId, petIndex);
         } else if (data.startsWith("adopt_pet")) {
             int petIndex = Integer.parseInt(data.split(":")[1]);
-            logger.info("Handling 'adopt_pet' callback for pet index: {}", petIndex);
             Pet pet = volunteerService.getAllPets().get(petIndex);
             startClientRegistration(chatId, pet);
         }
@@ -147,15 +172,14 @@ public class SelectPetCommandHandler implements CommandHandler {
                     .replyMarkup(keyboard);
             telegramBot.execute(message);
         }
-
-        logger.info("Showing pet index {} to chatId: {}", petIndex, chatId);
     }
 
     private void startClientRegistration(Long chatId, Pet pet) {
         Client client = new Client();
         client.setAdoptedPet(pet);
+        client.setChatId(chatId);  // Сохраняем chatId клиента
         pendingRegistrations.put(chatId, client);
         registrationStates.put(chatId, "AWAITING_NAME");
-        telegramBot.execute(new SendMessage(chatId, "Пожалуйста, укажите ваше имя для регистрации."));
+        telegramBot.execute(new SendMessage(chatId, "Пожалуйста, укажите ваше имя для регистрации.").replyMarkup(new ReplyKeyboardRemove()));
     }
 }

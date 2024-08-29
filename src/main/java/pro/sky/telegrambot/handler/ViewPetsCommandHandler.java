@@ -6,7 +6,6 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.DeleteMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,7 @@ public class ViewPetsCommandHandler implements CommandHandler {
 
     @Override
     public boolean canHandle(String command) {
-        return command.equals("Посмотреть питомцев") || command.startsWith("view_pet") || command.startsWith("delete_pet");
+        return command!=null && (command.equals("Посмотреть питомцев") || command.startsWith("view_pet") || command.startsWith("delete_pet"));
     }
 
     @Override

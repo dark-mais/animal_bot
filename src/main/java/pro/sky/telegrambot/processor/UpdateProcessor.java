@@ -3,15 +3,13 @@ package pro.sky.telegrambot.processor;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import pro.sky.telegrambot.handler.CommandHandler;
-import pro.sky.telegrambot.handler.SelectPetCommandHandler;
-
-import java.util.List;
-import java.util.Optional;
 
 @Component
 public class UpdateProcessor {
@@ -34,15 +32,18 @@ public class UpdateProcessor {
 
                 logger.info("Received CallbackQuery with data: {}", data);
 
-                commandHandlers.stream()
-                        .filter(h -> h.canHandle(data))
-                        .findFirst()
-                        .ifPresent(handler -> {
-                            logger.info("Found handler for callback data: {}", data);
-                            if (handler instanceof SelectPetCommandHandler) {
-                                ((SelectPetCommandHandler) handler).handleCallbackQuery(callbackQuery);
-                            }
-                        });
+                if (data != null) {
+                    commandHandlers.stream()
+                                   .filter(h -> h.canHandle(data))
+                                   .findFirst()
+                                   .ifPresent(handler -> {
+                                       logger.info("Found handler for callback data: {}", data);
+                                       //if (handler instanceof SelectPetCommandHandler) {
+                                           handler.handleCallbackQuery(callbackQuery);
+                                       //}
+                                   });
+                }
+
 
             } else if (update.message() != null) {
                 Message message = update.message();

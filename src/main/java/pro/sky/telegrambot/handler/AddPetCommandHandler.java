@@ -33,10 +33,8 @@ public class AddPetCommandHandler implements CommandHandler {
 
     @Override
     public boolean canHandle(String command) {
-        return command.equals("Добавить питомца") ||
-                userStates.containsValue("AWAITING_PET_NAME") ||
-                userStates.containsValue("AWAITING_PET_BREED") ||
-                userStates.containsValue("AWAITING_PET_PHOTO");
+        return command !=null && command.equals("Добавить питомца") ||
+                !userStates.isEmpty();
     }
 
     @Override

@@ -1,7 +1,6 @@
 package pro.sky.telegrambot.model;
 
 import javax.persistence.*;
-import java.util.List;
 
 @Entity
 public class Client {
@@ -13,6 +12,8 @@ public class Client {
     private String name;
     private int age;
     private String phoneNumber;
+    private Long chatId;
+    private int reportCount;
 
     @OneToOne
     @JoinColumn(name = "pet_id")
@@ -58,5 +59,25 @@ public class Client {
 
     public void setAdoptedPet(Pet adoptedPet) {
         this.adoptedPet = adoptedPet;
+    }
+
+    public Long getChatId() {
+        return chatId;
+    }
+
+    public void setChatId(Long chatId) {
+        this.chatId = chatId;
+    }
+
+    public int getReportCount() {
+        return reportCount;
+    }
+
+    public void setReportCount(int reportCount) {
+        this.reportCount = reportCount;
+    }
+
+    public void incrementReportCount() {
+        this.reportCount++;
     }
 }

@@ -20,7 +20,7 @@ public class StartCommandHandler implements CommandHandler {
 
     @Override
     public boolean canHandle(String command) {
-        return command.equals("/start");
+        return command!=null && command.equals("/start");
     }
 
     @Override

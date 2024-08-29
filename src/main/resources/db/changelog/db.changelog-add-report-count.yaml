@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: yourname
+      changes:
+        - addColumn:
+            tableName: client
+            columns:
+              - column:
+                  name: report_count
+                  type: INTEGER
+                  defaultValueNumeric: 0
